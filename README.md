@@ -1,122 +1,179 @@
-# ESP32 Mecanum Yaw Hold Fix
+# ESP32 Mecanum Yaw Hold Bench
 
-Focused Arduino/ESP32 test sketch for debugging mecanum yaw hold with an MPU-style IMU and four wheel RPM PID loops.
+Standalone Audix-aligned ESP32 test firmware for mecanum yaw hold, straight-line
+heading correction, wheel RPM validation, and a small HTTP dashboard.
 
-The main file is:
+This repo is intentionally separate from the real firmware folders:
 
-```text
-wheel-pid-web/wheel-pid-web.ino
-```
+- read-only reference sandbox: `C:\Users\TiBa\Documents\PlatformIO\Projects\audix_esp32_windows_test`
+- read-only final Pi firmware: `C:\Users\TiBa\OneDrive\Spring 26\Design 2\audix_wps\microROS\firmware\esp32_low_level`
+- editable yaw-hold test target: `C:\Users\TiBa\Documents\PlatformIO\Projects\esp32_mecanum_yaw_hold`
 
-For PlatformIO builds, this repo includes:
-
-```text
-platformio.ini
-```
-
-This repo is intentionally small so the patched yaw-control behavior can be shared and tested without mixing it with the final Pi/ROS firmware.
+The old single-file `.ino` test sketch is not the active firmware path here.
+This project mirrors the Audix Windows sandbox structure: `src/`, `include/`,
+FreeRTOS tasks, shared state, IMU driver, encoder odometry, mecanum kinematics,
+wheel PID, HTTP API, and a SPIFFS dashboard.
 
 ## What Changed
 
-- Replaced the previous hold-at-stop behavior with a latched yaw-hold state machine.
-- Added hysteresis between active hold and settled hold.
-- Added a 250 ms settle confirmation so IMU noise does not repeatedly re-arm correction.
-- Changed in-place hold to a simple damped controller:
+- Added explicit `imu cal`, `imu zero`, and `imu reset` commands.
+- Added `yawhold on` and `yawhold off`.
+- Straight `forward <cm>` and `backward <cm>` now keep heading hold active at
+  the captured starting yaw after the distance target finishes.
+- Still yaw hold commands chassis `wz` through the normal mecanum inverse
+  kinematics path instead of directly poking wheel RPMs.
+- Added a zero-output gate in the wheel PID task so tiny target and encoder
+  noise near zero does not get boosted into audible motor-deadband ticks.
+- Extended `/api/state` with a `heading` telemetry object.
+- Simplified the dashboard to the yaw-hold bench flow: setup, hold/release,
+  forward/backward/rotate, RPM validation, wheel/yaw PID tuning, and raw log.
 
-```cpp
-shapedError = signedDeadband(rawHeadingError, headingHoldExitDeg);
-pTerm = headingHoldPid.kp * shapedError;
-dTerm = -headingHoldPid.kd * imuGyroDps;
-corrTarget = headingCorrSign * (pTerm + dTerm);
-headingCorrRpm = slewToward(previousCorr, corrTarget, headingCorrSlewRpmPerSec, dt);
+## Build
+
+```powershell
+cd "C:\Users\TiBa\Documents\PlatformIO\Projects\esp32_mecanum_yaw_hold"
+pio run -e esp32_wifi_base_dashboard
+pio run -e esp32_wifi_base_dashboard -t buildfs
 ```
 
-- Made `Hold Min` a stiction assist only for larger, slow yaw errors, not a near-zero bang-bang floor.
-- Added telemetry for heading phase, shaped error, correction target, P term, and D term.
-- Made position-step buttons apply the latest dashboard tuning before starting the move.
+## Flash Over USB
+
+Replace `COM10` if your ESP32 is on another port.
+
+```powershell
+cd "C:\Users\TiBa\Documents\PlatformIO\Projects\esp32_mecanum_yaw_hold"
+pio run -e esp32_wifi_base_dashboard -t upload --upload-port COM10
+pio run -e esp32_wifi_base_dashboard -t uploadfs --upload-port COM10
+```
+
+If you need to find the port:
+
+```powershell
+pio device list
+```
+
+Serial monitor:
+
+```powershell
+pio device monitor -p COM10 -b 115200
+```
+
+## Open The GUI
+
+Connect the laptop to:
+
+```text
+SSID: AudixBench-ESP32
+Password: audixbench123
+```
+
+Open:
+
+```text
+http://192.168.4.1/
+```
+
+Direct API checks:
+
+```text
+http://192.168.4.1/api/ping
+http://192.168.4.1/api/state
+http://192.168.4.1/api/history
+http://192.168.4.1/api/command?line=status
+```
 
 ## Hardware Mapping
 
-Motor order is preserved:
+Firmware wheel order is `FL, FR, RL, RR`.
 
-| Index | Driver | Wheel |
-|---:|---|---|
-| 0 | MOTA | BackRight |
-| 1 | MOTB | FrontRight |
-| 2 | MOTC | BackLeft |
-| 3 | MOTD | FrontLeft |
+| Wheel | Motor label | Motor GPIOs | Encoder label | Encoder GPIOs |
+| --- | --- | --- | --- | --- |
+| Front Left | MOTD | `17, 18` | ENC2 | `34, 35` |
+| Front Right | MOTB | `13, 19` | ENC3 | `33, 32` |
+| Rear Left | MOTC | `4, 16` | ENC1 | `39, 36` |
+| Rear Right | MOTA | `27, 14` | ENC4 | `25, 26` |
 
-Default RPM signs are preserved from hardware testing:
+The motor driver is two-input H-bridge style:
 
-```cpp
-rpmSign[4] = {1, 1, -1, -1}; // BR, FR, BL, FL
-headingCorrSign = -1;
-```
+- positive command: `IN1 = PWM`, `IN2 = LOW`
+- negative command: `IN1 = LOW`, `IN2 = PWM`
+- stop: both inputs `LOW`
 
-Do not change those signs unless the quick sign validation in `docs/yaw_hold_test_procedure.md` fails.
+## Fast Bench Flow
 
-## Starting Values
-
-| Parameter | Start |
-|---|---:|
-| Hold Kp | `0.45` |
-| Hold Ki | `0.00` |
-| Hold Kd | `0.10` |
-| Hold Max | `6.0 RPM` |
-| Hold Min | `0.0 RPM` |
-| Hold Deadband / Exit | `1.2 deg` |
-| Hold Enter | `4.0 deg` |
-| Hold Rate DB | `1.5 deg/s` |
-| Corr Slew | `25 RPM/s` |
-| Head Sign | `-1` |
-
-## Dashboard
-
-The ESP32 starts a Wi-Fi AP and serves the embedded dashboard from the sketch.
-
-Typical network from the original sketch:
+Keep the robot on blocks until wheel direction, encoder mapping, RPM feedback,
+and stop behavior are correct.
 
 ```text
-SSID: ESP32-PID-TUNE
-Password: pid12345
-URL: http://192.168.4.1/
+stop
+i2cscan
+imu cal
+imu zero
+encoders zero
+rpm fl 60 2.0
+rpm fr 60 2.0
+rpm rl 60 2.0
+rpm rr 60 2.0
+rpms all 60 2.0
+yawhold on
 ```
 
-Use the dashboard to:
+Twist the robot by hand and release it. Expected result:
 
-- test single-wheel velocity PID in Mode 0
-- run position + heading tests in Mode 1
-- start yaw hold in place
-- view yaw, target heading, heading error, correction RPM, phase, and P/D terms
+- it returns to the captured yaw
+- heading error approaches zero without repeated sign-flip hunting
+- `heading.commandWz` returns to `0`
+- wheel PWM returns to `0` when settled
 
-## Build Check
-
-From the repo root:
-
-```powershell
-pio run
-```
-
-## Docs
-
-- `docs/yaw_hold_test_procedure.md`
-- `docs/tuning_guide.md`
-- `docs/rtos_porting_notes.md`
-
-## Important Safety Note
-
-Keep the robot on blocks until these are verified:
-
-- STOP cuts motor output immediately
-- each wheel spins in the expected direction
-- encoder signs match measured RPM
-- Mode 0 wheel velocity PID still behaves correctly
-- yaw correction sign is validated
-
-## Upstream Source
-
-This focused repo is based on the `wheel-pid-web.ino` sketch from:
+Then test commanded motion:
 
 ```text
-https://github.com/HamzaAlabiad/SOFTWARE
+forward 20
+backward 20
+rotate 90
+rotate -90
+stop
 ```
+
+`rotate 90` means counter-clockwise. `rotate -90` means clockwise.
+
+## Important Commands
+
+```text
+stop
+status
+quiet
+i2cscan
+imu cal
+imu zero
+imu reset
+encoders zero
+encoders once
+encoders on
+yawhold on
+yawhold off
+forward 20
+backward 20
+rotate 90
+rotate -90
+rpm fl 60 2.0
+rpms all 60 2.0
+pid show
+pid wheel 1.20 0.80 0.05
+pid yaw 1.10 0.00 0.03
+```
+
+## Documentation
+
+- `docs/yaw_hold_test_procedure.md`: hardware validation order and pass/fail criteria.
+- `docs/tuning_guide.md`: 10 to 15 minute tuning procedure and symptom map.
+- `docs/rtos_porting_notes.md`: how to move only the controller logic into the local RTOS firmware.
+- `docs/architecture.md`: module map for this standalone test firmware.
+
+## RTOS Applicability
+
+If this test works, the yaw-hold controller is applicable to the local ESP32 RTOS
+firmware. Port only the controller logic: angle wrapping, hold state, deadband,
+P plus gyro damping, command clamp, zero-output gate, settle criteria, and
+telemetry. Do not copy WebServer, SPIFFS dashboard, Arduino `String` JSON, or
+sketch-specific command handlers into the RTOS firmware.

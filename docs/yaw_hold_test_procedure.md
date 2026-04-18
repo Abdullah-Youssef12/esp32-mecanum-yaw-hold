@@ -1,97 +1,170 @@
-# Yaw Hold Hardware Test Procedure
+# Yaw Hold Test Procedure
 
-Use this first. Do not tune while the robot is on the floor.
+Use this procedure with the robot lifted on blocks until the RPM and stop tests
+pass. Do not run these tests on the floor until wheel direction, encoder mapping,
+and stop behavior are correct.
 
-## Bench Setup
+## Build And Flash
 
-1. Put the robot on blocks.
-2. Flash `wheel-pid-web/wheel-pid-web.ino`.
-3. Connect to the ESP32 Wi-Fi AP.
-4. Open the dashboard.
-5. Press STOP.
-6. Zero yaw.
-7. Calibrate IMU bias while the robot is still.
+```powershell
+cd "C:\Users\TiBa\Documents\PlatformIO\Projects\esp32_mecanum_yaw_hold"
+pio run -e esp32_wifi_base_dashboard
+pio run -e esp32_wifi_base_dashboard -t buildfs
+pio run -e esp32_wifi_base_dashboard -t upload --upload-port COM10
+pio run -e esp32_wifi_base_dashboard -t uploadfs --upload-port COM10
+```
 
-## Starting Dashboard Values
+Open the GUI:
 
-| Parameter | Value |
-|---|---:|
-| Head Kp | `0.90` |
-| Head Ki | `0.00` |
-| Head Kd | `0.05` |
-| Max Head Corr RPM | `10` |
-| Hold Max Corr RPM | `6` |
-| Hold Min Corr RPM | `0` |
-| Move Deadband | `2.0 deg` |
-| Hold Deadband | `1.2 deg` |
-| Hold Kp | `0.45` |
-| Hold Ki | `0.00` |
-| Hold Kd | `0.10` |
-| Hold Rate DB | `1.5 dps` |
-| Corr Slew | `25 rpm/s` |
-| Head Sign | `-1` |
+```text
+SSID: AudixBench-ESP32
+Password: audixbench123
+URL: http://192.168.4.1/
+```
 
-## Quick Sign Validation
+## First Boot
 
-This takes under 2 minutes.
+Run:
 
-1. Zero yaw near `0 deg`.
-2. Set target heading to `+10 deg`.
-3. Press `START YAW HOLD (IN PLACE)`.
-4. The robot should rotate toward positive yaw.
+```text
+stop
+quiet
+status
+```
 
 Pass:
 
-- yaw moves toward `+10 deg`
-- heading error shrinks
+- status prints `imuHealthy=yes` after the IMU is initialized
+- `cmd=(0, 0, 0)`
+- all wheel PWM values are `0`
 
-Fail:
+## IMU Setup
 
-- yaw moves away from `+10 deg`
+Keep the robot completely still.
 
-If it fails, flip only `Head Sign`. Do not change the RPM signs during this test.
-
-## Disturbance Test
-
-1. Start yaw hold at the current heading.
-2. Manually twist the robot about `10-20 deg`.
-3. Release it.
-
-Pass:
-
-- yaw returns smoothly toward target
-- correction RPM does not repeatedly flip sign near target
-- `phase` eventually becomes `3`
-- final heading error is about `+/-1.5 deg`
-- correction RPM slews back to zero
-
-Fail:
-
-- wheels chatter after yaw is already near target
-- correction RPM flips sign repeatedly
-- yaw repeatedly crosses the target with visible hunting
-
-## Wrap Test
-
-1. Rotate or set yaw near `+179 deg`.
-2. Set target near `-179 deg`.
-3. Start yaw hold.
+```text
+i2cscan
+imu cal
+imu zero
+status
+```
 
 Pass:
 
-- robot takes the short path across wrap
-- heading error is near `2 deg`, not `358 deg`
+- `i2cscan` finds `0x68`
+- `imu cal` reports calibration ok
+- `imu zero` sets yaw near `0 deg`
+- rotating the robot around Z changes IMU yaw in the GUI
 
-## Telemetry Meaning
+If pressing zero twice used to help, this split is the replacement:
 
-| Field | Meaning |
-|---|---|
-| `phase=0` | idle |
-| `phase=1` | moving heading correction |
-| `phase=2` | active in-place yaw hold |
-| `phase=3` | settled |
-| `corr` | final slew-limited correction RPM |
-| `target` | raw correction target before slew |
-| `shaped` | heading error after deadband shaping |
-| `P` | proportional RPM contribution |
-| `D` | gyro damping RPM contribution |
+- `imu cal`: estimates gyro bias while still
+- `imu zero`: changes the yaw reference only
+- `yawhold on`: captures the heading target for control
+
+## Encoder And RPM Validation
+
+```text
+encoders zero
+encoders on
+rpm fl 60 2.0
+rpm fr 60 2.0
+rpm rl 60 2.0
+rpm rr 60 2.0
+rpms all 60 2.0
+rpms all -60 2.0
+stop
+```
+
+Pass:
+
+- each single-wheel command moves only the selected wheel
+- each selected encoder row changes
+- measured RPM follows target RPM with no runaway
+- `stop` forces PWM to `0`
+
+Fail fast:
+
+- wrong row changes: fix encoder mapping before yaw tests
+- raw motion exists but RPM fails: check encoder sign/direction and wheel PID
+- wheel keeps ticking after `stop`: stop testing and inspect motor output state
+
+## Still Yaw-Hold Test
+
+```text
+stop
+imu cal
+imu zero
+encoders zero
+yawhold on
+```
+
+Twist the robot by hand by about 5 to 15 degrees and release.
+
+Pass:
+
+- `heading.phaseName` changes to `hold_active`
+- `heading.yawErrorDeg` moves toward `0`
+- `heading.commandWz` has the correct sign and then returns to `0`
+- `heading.phaseName` becomes `settled`
+- all wheel PWM values return to `0`
+- there are no repeated audible ticks once settled
+
+Fail sign check in under 2 minutes:
+
+1. Run `imu zero`, then `yawhold on`.
+2. Twist the robot counter-clockwise by hand and hold it.
+3. `heading.yawErrorDeg` should show the target is behind the robot.
+4. Release it. The first commanded correction must rotate it back toward zero.
+5. If it rotates farther away, the yaw correction sign or wheel mixing sign is wrong.
+
+## Straight-Line Test
+
+```text
+stop
+imu cal
+imu zero
+encoders zero
+forward 20
+```
+
+Pass:
+
+- X odometry moves toward about `20 cm`
+- yaw error stays small during motion
+- when X finishes, heading hold remains active at the original yaw
+- after settling, `command.wz`, `heading.commandWz`, wheel targets, and PWM return to zero
+
+Then run:
+
+```text
+backward 20
+```
+
+Pass criteria are the same, with X moving negative/back toward the starting point.
+
+## Rotation Test
+
+```text
+rotate 90
+rotate -90
+```
+
+Pass:
+
+- `rotate 90` turns counter-clockwise
+- `rotate -90` turns clockwise
+- yaw error handles wrap around `+/-180`
+- final PWM returns to zero
+
+## What To Record
+
+For each failed run, record:
+
+- command sent
+- `heading.phaseName`
+- `heading.targetYawDeg`
+- `heading.yawErrorDeg`
+- `heading.commandWz`
+- `imu.gyroZ`
+- wheel target RPM, measured RPM, and PWM
