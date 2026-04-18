@@ -1,0 +1,12 @@
+.pio/
+.vscode/
+build/
+dist/
+*.bin
+*.elf
+*.map
+*.o
+*.log
+*.tmp
+*.bak
+Thumbs.db
