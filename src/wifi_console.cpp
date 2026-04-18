@@ -245,18 +245,23 @@ void serveApiState() {
     const BenchRuntimeSnapshot bench = getBenchRuntimeSnapshot();
     const PidTuningState pid = getPidTuningState();
     const HeadingControlState heading = getHeadingControlState();
+    const std::uint32_t now_ms = millis();
+    const std::uint32_t command_age_ms = now_ms - command.last_cmd_time_ms;
+    const bool motion_allowed = command.robot_enabled && command_age_ms < CMD_TIMEOUT_MS;
 
     String json;
-    json.reserve(3000);
+    json.reserve(3300);
     json += "{";
     json += "\"mode\":{";
     appendJsonKeyString(json, "transport", "wifi");
     appendJsonKeyString(json, "subsystem", firmwareSubsystem());
-    appendJsonKeyInt(json, "millis", static_cast<long>(millis()), false);
+    appendJsonKeyInt(json, "millis", static_cast<long>(now_ms), false);
     json += "},";
 
     json += "\"command\":{";
     appendJsonKeyValue(json, "enabled", command.robot_enabled ? "true" : "false");
+    appendJsonKeyValue(json, "motionAllowed", motion_allowed ? "true" : "false");
+    appendJsonKeyInt(json, "cmdAgeMs", static_cast<long>(command_age_ms));
     appendJsonKeyFloat(json, "vx", command.cmd_vx);
     appendJsonKeyFloat(json, "vy", command.cmd_vy);
     appendJsonKeyFloat(json, "wz", command.cmd_wz, false);

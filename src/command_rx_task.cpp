@@ -241,7 +241,7 @@ void printHelp() {
     consolePrintln("  stop");
     consolePrintln("  quiet");
     consolePrintln("  imu on|off|cal|zero|reset");
-    consolePrintln("  yawhold on|off");
+    consolePrintln("  yawhold on|off|zero");
     consolePrintln("  encoders on|off|once|zero|reset");
     consolePrintln("  rtos on|off");
     consolePrintln("  pidx <speed_mps> <duration_s>");
@@ -267,7 +267,7 @@ void printHelp() {
     consolePrintln("  stop");
     consolePrintln("  quiet");
     consolePrintln("  imu on|off|cal|zero|reset");
-    consolePrintln("  yawhold on|off");
+    consolePrintln("  yawhold on|off|zero");
     consolePrintln("  encoders on|off|once|zero|reset");
     consolePrintln("  rtos on|off");
     consolePrintln("  pidx <speed_mps> <duration_s>");
@@ -308,7 +308,7 @@ void printHelp() {
     consolePrintln("  stop");
     consolePrintln("  quiet");
     consolePrintln("  imu on|off|cal|zero|reset");
-    consolePrintln("  yawhold on|off");
+    consolePrintln("  yawhold on|off|zero");
     consolePrintln("  encoders on|off|once|zero|reset");
     consolePrintln("  rtos on|off");
     consolePrintln("  pidx <speed_mps> <duration_s>");
@@ -923,14 +923,19 @@ void processCommandTokens(char* line) {
         printBaseUnavailable();
 #else
         const char* state_token = strtok_r(nullptr, " \t", &context);
-        if (equalsIgnoreCase(state_token, "on")) {
+        if (equalsIgnoreCase(state_token, "zero")) {
+            setHeadingHoldEnabled(false, millis());
+            zeroImuYawSnapshot();
+            setHeadingHoldEnabled(true, millis());
+            consolePrintln("[heading] yaw zeroed and hold enabled at 0 deg.");
+        } else if (equalsIgnoreCase(state_token, "on")) {
             setHeadingHoldEnabled(true, millis());
             consolePrintln("[heading] yaw hold enabled at current heading.");
         } else if (equalsIgnoreCase(state_token, "off")) {
             setHeadingHoldEnabled(false, millis());
             consolePrintln("[heading] yaw hold disabled.");
         } else {
-            consolePrintln("Usage: yawhold on|off");
+            consolePrintln("Usage: yawhold on|off|zero");
         }
 #endif
         return;
@@ -1236,7 +1241,6 @@ void commandRxTask(void*) {
 
     for (;;) {
         markTaskHeartbeat(kCommandTaskHeartbeat);
-        serviceBenchRuntime(millis());
 
         while (Serial.available() > 0) {
             const char input = static_cast<char>(Serial.read());

@@ -60,7 +60,8 @@ If pressing zero twice used to help, this split is the replacement:
 
 - `imu cal`: estimates gyro bias while still
 - `imu zero`: changes the yaw reference only
-- `yawhold on`: captures the heading target for control
+- `yawhold zero`: zeros yaw and captures `0 deg` as the heading target
+- `yawhold on`: captures the current heading target for general hold control
 
 ## Encoder And RPM Validation
 
@@ -94,9 +95,8 @@ Fail fast:
 ```text
 stop
 imu cal
-imu zero
 encoders zero
-yawhold on
+yawhold zero
 ```
 
 Twist the robot by hand by about 5 to 15 degrees and release.
@@ -104,15 +104,17 @@ Twist the robot by hand by about 5 to 15 degrees and release.
 Pass:
 
 - `heading.phaseName` changes to `hold_active`
-- `heading.yawErrorDeg` moves toward `0`
+- `heading.yawErrorDeg` moves toward `0` and finishes inside `+/-3 deg`
 - `heading.commandWz` has the correct sign and then returns to `0`
+- wheel target RPM becomes nonzero while outside `+/-3 deg`
+- wheel target RPM returns to `0` when settled
 - `heading.phaseName` becomes `settled`
 - all wheel PWM values return to `0`
 - there are no repeated audible ticks once settled
 
 Fail sign check in under 2 minutes:
 
-1. Run `imu zero`, then `yawhold on`.
+1. Run `yawhold zero`.
 2. Twist the robot counter-clockwise by hand and hold it.
 3. `heading.yawErrorDeg` should show the target is behind the robot.
 4. Release it. The first commanded correction must rotate it back toward zero.
@@ -168,3 +170,40 @@ For each failed run, record:
 - `heading.commandWz`
 - `imu.gyroZ`
 - wheel target RPM, measured RPM, and PWM
+
+## Copy-Ready GUI Commands
+
+Paste/send one line at a time through the GUI manual command input.
+
+Clean setup:
+
+```text
+stop
+yawhold off
+quiet
+pid wheel 1.20 0.80 0.05
+pid yaw 2.00 0.00 0.06
+imu cal
+yawhold zero
+```
+
+If return is too weak:
+
+```text
+pid yaw 3.00 0.00 0.08
+yawhold zero
+```
+
+If it hunts or vibrates:
+
+```text
+pid yaw 1.50 0.00 0.08
+yawhold zero
+```
+
+If it turns the wrong way:
+
+```text
+stop
+yawhold off
+```

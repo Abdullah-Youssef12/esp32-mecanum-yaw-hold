@@ -33,6 +33,9 @@ void motionControlTask(void*) {
 
     for (;;) {
         markTaskHeartbeat(kMotionTaskHeartbeat);
+        const std::uint32_t now_ms = millis();
+        serviceBenchRuntime(now_ms);
+
         const PidGains wheel_gains = getPidGains(PidGainGroup::kWheel);
         if (wheel_gains.version != wheel_pid_version) {
             for (std::size_t wheel = 0; wheel < kWheelCount; ++wheel) {
@@ -118,7 +121,7 @@ void motionControlTask(void*) {
             previous_speed_override = false;
         }
 
-        const bool motion_allowed = motion_safety.motionAllowed(command_state, millis());
+        const bool motion_allowed = motion_safety.motionAllowed(command_state, now_ms);
 
         if (!motion_allowed) {
             for (auto& controller : wheel_pid) {

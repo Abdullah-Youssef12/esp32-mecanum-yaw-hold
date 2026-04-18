@@ -106,7 +106,11 @@ float computeHeadingHoldCommand(float target_yaw,
     stable_ms = 0.0f;
     settled = false;
     float wz = g_target_yaw_pid.update(0.0f, -yaw_error, dt_seconds, true);
-    return std::clamp(wz, -TARGET_MOVE_YAW_HOLD_LIMIT_RAD_S, TARGET_MOVE_YAW_HOLD_LIMIT_RAD_S);
+    wz = std::clamp(wz, -TARGET_MOVE_YAW_HOLD_LIMIT_RAD_S, TARGET_MOVE_YAW_HOLD_LIMIT_RAD_S);
+    if (std::fabs(wz) > 0.0f && std::fabs(wz) < HEADING_HOLD_MIN_WZ_RAD_S) {
+        wz = std::copysign(HEADING_HOLD_MIN_WZ_RAD_S, yaw_error);
+    }
+    return wz;
 }
 
 void applyTargetPidGainsIfNeeded(bool reset_controllers = false) {

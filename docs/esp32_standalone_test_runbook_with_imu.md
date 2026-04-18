@@ -105,7 +105,7 @@ stop
 imu cal
 imu zero
 encoders zero
-yawhold on
+yawhold zero
 ```
 
 Twist the robot by hand and release.
@@ -113,6 +113,7 @@ Twist the robot by hand and release.
 Pass:
 
 - heading error returns toward `0 deg`
+- heading error finishes inside `+/-3 deg`
 - `heading.commandWz` returns to `0`
 - `heading.phaseName` becomes `settled`
 - wheel PWM returns to `0`

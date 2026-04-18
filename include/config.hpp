@@ -142,9 +142,10 @@ constexpr float TARGET_MOVE_YAW_HOLD_LIMIT_RAD_S = 0.35f;
 constexpr float TARGET_MOVE_LINEAR_TOLERANCE_M = 0.01f;
 constexpr float TARGET_MOVE_YAW_TOLERANCE_RAD = 0.035f;
 constexpr float TARGET_PID_INTEGRAL_MAX = 2.0f;
-constexpr float HEADING_HOLD_DEADBAND_RAD = 0.035f;  // about 2 degrees
+constexpr float HEADING_HOLD_DEADBAND_RAD = 0.05236f;  // about 3 degrees
 constexpr float HEADING_HOLD_RATE_DEADBAND_RAD_S = 0.035f;  // about 2 deg/s
 constexpr float HEADING_HOLD_STABLE_MS = 250.0f;
+constexpr float HEADING_HOLD_MIN_WZ_RAD_S = 0.16f;
 constexpr float WHEEL_TARGET_ZERO_EPSILON_RAD_S = 0.03f;
 
 // -- IMU-odometry blending -----------------------------------------

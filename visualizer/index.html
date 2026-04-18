@@ -29,6 +29,7 @@
             <button data-command="imu cal">IMU Cal</button>
             <button data-command="imu zero">Zero Yaw</button>
             <button data-command="imu reset">IMU Reset</button>
+            <button class="primary" data-command="yawhold zero">Set Zero + Hold</button>
             <button data-command="encoders zero">Odom Zero</button>
         </section>
 
@@ -66,7 +67,11 @@
                     <div class="metric"><span>error deg</span><strong id="headingErrorDeg">0.00</strong></div>
                     <div class="metric"><span>cmd wz</span><strong id="headingCommandWz">0.000</strong></div>
                     <div class="metric"><span>stable ms</span><strong id="headingStableMs">0</strong></div>
+                    <div class="metric"><span>motion</span><strong id="commandMotionAllowed">no</strong></div>
+                    <div class="metric"><span>cmd age ms</span><strong id="commandAgeMs">0</strong></div>
+                    <div class="metric"><span>actual wz</span><strong id="commandWzActual">0.000</strong></div>
                 </div>
+                <div id="yawPathWarning" class="path-warning hidden">Yaw command is active, but wheel targets are still zero.</div>
             </article>
         </section>
 
@@ -79,7 +84,8 @@
                 <span id="holdBadge" class="badge">hold: off</span>
             </div>
             <div class="test-grid">
-                <button class="primary" data-command="yawhold on">Hold Current Heading</button>
+                <button class="primary" data-command="yawhold zero">Set Zero + Hold</button>
+                <button data-command="yawhold on">Hold Current Heading</button>
                 <button data-command="yawhold off">Release Hold</button>
                 <label>Distance cm
                     <input id="distanceCm" type="number" value="20" step="1">
@@ -156,6 +162,49 @@
                 </div>
                 <div id="pidRows" class="pid-grid"></div>
             </article>
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">Copy-ready test commands</p>
+            <div class="command-block-grid">
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Clean Zero-Hold Setup</h3>
+                        <button data-copy-target="setupCommands">Copy</button>
+                    </div>
+                    <pre id="setupCommands" class="command-text">stop
+yawhold off
+quiet
+pid wheel 1.20 0.80 0.05
+pid yaw 2.00 0.00 0.06
+imu cal
+yawhold zero</pre>
+                </article>
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Stronger Correction</h3>
+                        <button data-copy-target="strongCommands">Copy</button>
+                    </div>
+                    <pre id="strongCommands" class="command-text">pid yaw 3.00 0.00 0.08
+yawhold zero</pre>
+                </article>
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Softer Correction</h3>
+                        <button data-copy-target="softCommands">Copy</button>
+                    </div>
+                    <pre id="softCommands" class="command-text">pid yaw 1.50 0.00 0.08
+yawhold zero</pre>
+                </article>
+                <article class="command-card">
+                    <div class="section-title compact">
+                        <h3>Wrong Way Stop</h3>
+                        <button data-copy-target="stopCommands">Copy</button>
+                    </div>
+                    <pre id="stopCommands" class="command-text">stop
+yawhold off</pre>
+                </article>
+            </div>
         </section>
 
         <section class="panel">

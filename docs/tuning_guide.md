@@ -9,16 +9,17 @@ Start from these commands:
 
 ```text
 pid wheel 1.20 0.80 0.05
-pid yaw 1.10 0.00 0.03
+pid yaw 2.00 0.00 0.06
 ```
 
 The controller uses:
 
 - `pid wheel`: wheel velocity tracking
 - `pid yaw`: straight-line heading correction, still yaw hold, and rotation
-- `HEADING_HOLD_DEADBAND_RAD`: default about 2 degrees
+- `HEADING_HOLD_DEADBAND_RAD`: default about 3 degrees
 - `HEADING_HOLD_RATE_DEADBAND_RAD_S`: default about 2 deg/s
 - `TARGET_MOVE_YAW_HOLD_LIMIT_RAD_S`: caps hold correction speed
+- `HEADING_HOLD_MIN_WZ_RAD_S`: minimum return command outside the 3 degree band
 - zero-output gate: forces PWM to zero when target wheel speed and measured speed are tiny
 
 ## Step 1: Confirm Wheel PID Still Works
@@ -51,7 +52,7 @@ bias and make yaw hold act random.
 ## Step 3: Still Yaw Hold
 
 ```text
-yawhold on
+yawhold zero
 ```
 
 Twist the robot 5 to 10 degrees and release. Watch:
@@ -128,7 +129,7 @@ Adjustment rules:
 For the bench test to count as successful:
 
 - a 5 to 10 degree manual twist returns to target without visible repeated hunting
-- `heading.yawErrorDeg` settles inside about `+/-2 deg`
+- `heading.yawErrorDeg` settles inside `+/-3 deg`
 - `heading.commandWz` returns to `0`
 - wheel PWM returns to `0`
 - `forward 20` and `backward 20` do not visibly drift orientation

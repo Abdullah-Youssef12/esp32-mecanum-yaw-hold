@@ -6,12 +6,12 @@ firmware.
 The page is intentionally narrow:
 
 - safety/setup commands: `stop`, `status`, `quiet`, `i2cscan`, `imu cal`,
-  `imu zero`, `imu reset`, and `encoders zero`
+  `imu zero`, `imu reset`, `yawhold zero`, and `encoders zero`
 - live odometry, IMU, heading-controller, and wheel telemetry from `/api/state`
-- heading tests: `yawhold on`, `yawhold off`, `forward`, `backward`, `rotate`
+- heading tests: `yawhold zero`, `yawhold on`, `yawhold off`, `forward`, `backward`, `rotate`
 - RPM validation for one wheel or all wheels
 - runtime PID controls for only `wheel` and `yaw`
-- raw log and manual command input
+- copy-ready command blocks, raw log, and manual command input
 
 It uses HTTP polling only:
 

@@ -17,14 +17,14 @@ wheel PID, HTTP API, and a SPIFFS dashboard.
 ## What Changed
 
 - Added explicit `imu cal`, `imu zero`, and `imu reset` commands.
-- Added `yawhold on` and `yawhold off`.
+- Added `yawhold zero`, `yawhold on`, and `yawhold off`.
 - Straight `forward <cm>` and `backward <cm>` now keep heading hold active at
   the captured starting yaw after the distance target finishes.
 - Still yaw hold commands chassis `wz` through the normal mecanum inverse
   kinematics path instead of directly poking wheel RPMs.
 - Added a zero-output gate in the wheel PID task so tiny target and encoder
   noise near zero does not get boosted into audible motor-deadband ticks.
-- Extended `/api/state` with a `heading` telemetry object.
+- Extended `/api/state` with heading and command-path diagnostics.
 - Simplified the dashboard to the yaw-hold bench flow: setup, hold/release,
   forward/backward/rotate, RPM validation, wheel/yaw PID tuning, and raw log.
 
@@ -108,20 +108,19 @@ and stop behavior are correct.
 stop
 i2cscan
 imu cal
-imu zero
 encoders zero
 rpm fl 60 2.0
 rpm fr 60 2.0
 rpm rl 60 2.0
 rpm rr 60 2.0
 rpms all 60 2.0
-yawhold on
+yawhold zero
 ```
 
 Twist the robot by hand and release it. Expected result:
 
 - it returns to the captured yaw
-- heading error approaches zero without repeated sign-flip hunting
+- heading error returns inside `+/-3 deg` without repeated sign-flip hunting
 - `heading.commandWz` returns to `0`
 - wheel PWM returns to `0` when settled
 
@@ -152,6 +151,7 @@ encoders once
 encoders on
 yawhold on
 yawhold off
+yawhold zero
 forward 20
 backward 20
 rotate 90
@@ -160,7 +160,7 @@ rpm fl 60 2.0
 rpms all 60 2.0
 pid show
 pid wheel 1.20 0.80 0.05
-pid yaw 1.10 0.00 0.03
+pid yaw 2.00 0.00 0.06
 ```
 
 ## Documentation

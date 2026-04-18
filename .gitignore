@@ -9,4 +9,5 @@ dist/
 *.log
 *.tmp
 *.bak
+*.code-workspace
 Thumbs.db

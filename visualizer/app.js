@@ -15,6 +15,7 @@ const ui = {
     commandInput: document.getElementById("commandInput"),
     pidRows: document.getElementById("pidRows"),
     holdBadge: document.getElementById("holdBadge"),
+    yawPathWarning: document.getElementById("yawPathWarning"),
 };
 
 let transport;
@@ -40,6 +41,12 @@ function bindUi() {
         const commandButton = event.target.closest("[data-command]");
         if (commandButton) {
             send(commandButton.dataset.command);
+            return;
+        }
+
+        const copyButton = event.target.closest("[data-copy-target]");
+        if (copyButton) {
+            copyCommandBlock(copyButton.dataset.copyTarget);
             return;
         }
 
@@ -166,9 +173,13 @@ function renderState(state) {
     setText("headingErrorDeg", fixed(heading.yawErrorDeg, 2));
     setText("headingCommandWz", fixed(heading.commandWz, 3));
     setText("headingStableMs", fixed(heading.stableMs, 0));
+    setText("commandMotionAllowed", state.command?.motionAllowed ? "yes" : "no");
+    setText("commandAgeMs", fixed(state.command?.cmdAgeMs, 0));
+    setText("commandWzActual", fixed(state.command?.wz, 3));
     ui.holdBadge.textContent = heading.holdEnabled ? `hold: ${heading.phaseName || "on"}` : "hold: off";
     ui.holdBadge.className = `badge ${heading.holdEnabled ? (heading.settled ? "connected" : "warning") : ""}`;
 
+    let allWheelTargetsZero = true;
     for (const wheel of wheels) {
         const data = state.wheels?.[wheel] || {};
         setText(`${wheel}Count`, data.count ?? 0);
@@ -176,7 +187,12 @@ function renderState(state) {
         setText(`${wheel}TargetRpm`, fixed(data.targetRpm, 3));
         setText(`${wheel}RadS`, fixed(data.measuredRadS, 3));
         setText(`${wheel}Pwm`, fixed(data.pwm, 3));
+        allWheelTargetsZero = allWheelTargetsZero && Math.abs(Number(data.targetRpm) || 0) < 0.01;
     }
+
+    const yawCommandMissingWheelTargets =
+        heading.holdEnabled && Math.abs(Number(heading.commandWz) || 0) > 0.01 && allWheelTargetsZero;
+    ui.yawPathWarning.classList.toggle("hidden", !yawCommandMissingWheelTargets);
 
     for (const group of pidGroups) {
         const gains = state.pid?.[group.key];
@@ -204,6 +220,19 @@ function appendLocalLog(line) {
     const current = ui.terminalLog.textContent;
     ui.terminalLog.textContent = `${current}${current ? "\n" : ""}${line}`;
     ui.terminalLog.scrollTop = ui.terminalLog.scrollHeight;
+}
+
+async function copyCommandBlock(id) {
+    const element = document.getElementById(id);
+    if (!element) return;
+    const text = element.textContent.trim();
+    try {
+        await navigator.clipboard.writeText(text);
+        appendLocalLog(`[copy] ${id}`);
+    } catch {
+        ui.commandInput.value = text.split("\n")[0] || "";
+        appendLocalLog("[warn] Clipboard copy blocked; first command loaded.");
+    }
 }
 
 function setText(id, value) {
